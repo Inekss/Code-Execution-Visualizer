@@ -6,20 +6,16 @@ from utils.writer import Writer
 
 
 class App:
-    """
-    Main entry point of the application.
-    """
+    """Main entry point of the application."""
 
     def __init__(self, base_path: str):
         self.base_path = Path(base_path)
 
     def run(self):
         processor = Processor(self.base_path)
-        registry = processor.run()
-
-        Console.print(registry)
-
-        Writer.save_registry_json(registry)
+        roadmap = processor.run()
+        Console().print(roadmap)
+        Writer.save_dependency_roadmap_json(roadmap)
 
 
 if __name__ == "__main__":

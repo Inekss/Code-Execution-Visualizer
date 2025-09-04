@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from models.file import File
+
 
 @dataclass
 class RegistryFunction:
@@ -17,7 +19,7 @@ class RegistryFunction:
         return (
             f"RegistryFunction(function_name='{self.function_name}', "
             f"parent_class='{self.parent_class.class_name if self.parent_class else None}', "
-            f"parent_file='{self.parent_file.file_name if self.parent_file else None}', "
+            f"parent_file='{self.parent_file.file.file_name if self.parent_file else None}', "
             f"parent_function='{self.parent_function.function_name if self.parent_function else None}', "
             f"functions={self.functions})"
         )
@@ -37,7 +39,7 @@ class RegistryClass:
         return (
             f"RegistryClass(class_name='{self.class_name}', "
             f"parent_class='{self.parent_class.class_name if self.parent_class else None}', "
-            f"parent_file='{self.parent_file.file_name if self.parent_file else None}', "
+            f"parent_file='{self.parent_file.file.file_name if self.parent_file else None}', "
             f"parent_function='{self.parent_function.function_name if self.parent_function else None}', "
             f"classes={self.classes}, class_functions={self.class_functions})"
         )
@@ -45,21 +47,19 @@ class RegistryClass:
 
 @dataclass
 class RegistryFile:
-    file_name: str
-    file_format: str
-    file_path: str
+    file: File
     classes: List[RegistryClass] = field(default_factory=list)
     functions: List[RegistryFunction] = field(default_factory=list)
 
     def __repr__(self):
         return (
-            f"RegistryFile(file_name='{self.file_name}', "
+            f"RegistryFile(file_name='{self.file.file_name}', "
             f"classes={self.classes}, functions={self.functions})"
         )
 
 
 @dataclass
-class Registry:
+class RegistryHeap:
     files: List[RegistryFile] = field(default_factory=list)
 
     def __repr__(self):
