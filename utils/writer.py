@@ -2,7 +2,7 @@ import json
 from dataclasses import is_dataclass
 from pathlib import Path
 
-from models.dependencies import DependencyRoadMap
+from models.file import File
 
 
 class Writer:
@@ -25,28 +25,43 @@ class Writer:
         print(f"Dependency roadmap saved to {file_path}")
 
     @staticmethod
-    def dataclass_to_dict(obj):
+    def dataclass_to_dict(obj, seen=None):
+        """
+        Recursively convert dataclass to dict while avoiding circular references.
+        """
+        if seen is None:
+            seen = set()
+
+        # Explicit handling for File objects (serialize fully every time)
+        if isinstance(obj, File):
+            return {
+                "file_name": obj.file_name,
+                "file_format": obj.file_format,
+                "file_path": obj.file_path,
+            }
+
+        if id(obj) in seen:
+            return None  # break recursion for other objects
+        seen.add(id(obj))
+
         if is_dataclass(obj):
             result = {}
             for k, v in obj.__dict__.items():
-                # Break recursion for parent references
+                # Handle parent references as simple names
                 if k == "parent_file":
-                    result[k] = (
-                        getattr(v.file, "file_name", None)
-                        if v and hasattr(v, "file")
-                        else None
-                    )
+                    result[k] = getattr(getattr(v, "file", None), "file_name", None)
                 elif k == "parent_class":
-                    result[k] = getattr(v, "class_name", None) if v else None
+                    result[k] = getattr(v, "class_name", None)
                 elif k == "parent_function":
-                    result[k] = getattr(v, "function_name", None) if v else None
+                    result[k] = getattr(v, "function_name", None)
                 elif v is None:
                     result[k] = None
                 elif isinstance(v, list):
-                    result[k] = [Writer.dataclass_to_dict(i) for i in v]
+                    result[k] = [Writer.dataclass_to_dict(i, seen) for i in v]
                 elif is_dataclass(v):
-                    result[k] = Writer.dataclass_to_dict(v)
+                    result[k] = Writer.dataclass_to_dict(v, seen)
                 else:
                     result[k] = v
             return result
+
         return obj

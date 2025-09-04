@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+from models.calls import Calls
 from models.imports import Imports, ImportsHeap
 from models.registry import RegistryFile, RegistryHeap
 
@@ -9,6 +10,7 @@ from models.registry import RegistryFile, RegistryHeap
 class Dependency:
     registry: RegistryFile
     imports: Imports
+    calls: Calls
 
 
 @dataclass
