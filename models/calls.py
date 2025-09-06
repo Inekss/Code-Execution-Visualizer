@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from models.file import File
 
@@ -18,6 +18,9 @@ class Call:
     parent_class: Optional[str] = None
     called_func: Optional[str] = None
     coordinates: Optional[CallCoordinates] = None
+    parameters: Optional[List[str]] = None
+    param_types: Optional[List[str]] = None
+    arguments: Optional[List[Any]] = None
 
 
 @dataclass

@@ -29,7 +29,6 @@ class Writer:
     def save_file_hashes_json(
         hashes: Dict[str, dict], file_name: str = "file_hashes.json"
     ) -> None:
-        """Save file hashes (from FileHasher) to JSON."""
         project_root = Path(__file__).parent.parent
         data_dir = project_root / "data"
         data_dir.mkdir(exist_ok=True)
@@ -44,11 +43,12 @@ class Writer:
     def dataclass_to_dict(obj, seen=None):
         """
         Recursively convert dataclass to dict while avoiding circular references.
+        Ensures param_types exists with None values if missing.
         """
+        global parameters
         if seen is None:
             seen = set()
 
-        # Explicit handling for File objects (serialize fully every time)
         if isinstance(obj, File):
             return {
                 "file_name": obj.file_name,
@@ -57,13 +57,12 @@ class Writer:
             }
 
         if id(obj) in seen:
-            return None  # break recursion for other objects
+            return None
         seen.add(id(obj))
 
         if is_dataclass(obj):
             result = {}
             for k, v in obj.__dict__.items():
-                # Handle parent references as simple names
                 if k == "parent_file":
                     result[k] = getattr(getattr(v, "file", None), "file_name", None)
                 elif k == "parent_class":
@@ -78,6 +77,20 @@ class Writer:
                     result[k] = Writer.dataclass_to_dict(v, seen)
                 else:
                     result[k] = v
+
+            if hasattr(obj, "parameters"):
+                parameters = getattr(obj, "parameters") or []
+                result["parameters"] = parameters
+
+            if hasattr(obj, "param_types"):
+                param_types = getattr(obj, "param_types")
+                if param_types is None:
+                    param_types = [None] * len(parameters)
+                result["param_types"] = param_types
+
+            if hasattr(obj, "arguments"):
+                result["arguments"] = getattr(obj, "arguments", None)
+
             return result
 
         return obj

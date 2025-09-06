@@ -8,8 +8,8 @@ from models.registry import RegistryClass, RegistryHeap
 
 class CallAnalyzer:
     """
-    Analyzes a Python file's AST (Abstract Syntax Tree) to identify function and method calls,
-    including which class or function made the call (caller) and which class/function is called (callee).
+    Analyzes a Python file's AST to identify function and method calls,
+    including caller info, callee info, parameters, and arguments.
     """
 
     @staticmethod
@@ -19,136 +19,139 @@ class CallAnalyzer:
         registry_heap: RegistryHeap,
         imports_map: Optional[Dict[str, str]] = None,
     ) -> Calls:
-        """
-        Processes the AST of a single Python file to extract call information.
+        calls_list: List[Call] = []
+        instance_map: Dict[str, str] = {}  # var_name -> class_name
+        imports_map = imports_map or {}
 
-        Args:
-            file_ast: The AST of the Python file.
-            file_meta: Metadata about the file (name, path, etc.).
-            registry_heap: Registry of all functions/classes in the project.
-            imports_map: Optional map of imported names to file paths (for external calls).
-
-        Returns:
-            Calls object containing all calls found in the file with coordinates and scope info.
-        """
-        calls_list: List[Call] = []  # Accumulate all Call objects found
-        instance_map: Dict[str, str] = (
-            {}
-        )  # Track variable instances: var_name -> class_name
-        imports_map = imports_map or {}  # Ensure imports_map is a dict
-
-        # --- Helper function: find class/method in the project registry or imports ---
-        def find_class_and_method(name: str) -> tuple[Optional[str], Optional[File]]:
+        # --- Resolve function/class in registry ---
+        def find_class_and_method(
+            name: str,
+        ) -> tuple[
+            Optional[str], Optional[File], Optional[List[str]], Optional[List[str]]
+        ]:
             """
-            Tries to resolve the called function or class to a class name and file in the project.
+            Return (parent_class_name, File, parameters, param_types)
             """
             for reg_file in registry_heap.files:
-                # Check top-level functions
+                # Top-level functions
                 for func in reg_file.functions:
                     if func.function_name == name:
-                        return None, reg_file.file  # Function is not inside a class
+                        return (
+                            None,
+                            reg_file.file,
+                            getattr(func, "parameters", None),
+                            getattr(func, "param_types", None),
+                        )
 
-                # Recursively check classes and their methods
+                # Recursively check classes
                 def walk_class(cls: RegistryClass):
                     if cls.class_name == name:
-                        return cls.class_name, reg_file.file
-                    for f in cls.class_functions:
+                        return cls.class_name, reg_file.file, None, None
+                    for f in getattr(cls, "class_functions", []):
                         if f.function_name == name:
-                            return cls.class_name, reg_file.file
-                    for sub_cls in cls.classes:
+                            return (
+                                cls.class_name,
+                                reg_file.file,
+                                getattr(f, "parameters", None),
+                                getattr(f, "param_types", None),
+                            )
+                    for sub_cls in getattr(cls, "classes", []):
                         res = walk_class(sub_cls)
-                        if res != (None, None):
+                        if res != (None, None, None, None):
                             return res
-                    return None, None
+                    return None, None, None, None
 
-                for cls in reg_file.classes:
+                for cls in getattr(reg_file, "classes", []):
                     res = walk_class(cls)
-                    if res != (None, None):
+                    if res != (None, None, None, None):
                         return res
 
-            # Fallback: external imports
+            # Fallback to imports
             if name in imports_map:
-                return None, File(
+                f = File(
                     file_name=imports_map[name],
                     file_format=".py",
                     file_path=imports_map[name],
                 )
-            return None, None
+                return None, f, None, None
+            return None, None, None, None
 
-        # --- Recursive AST traversal function ---
+        # --- Recursive AST traversal ---
         def visit(
             node: ast.AST, current_class: Optional[str], current_func: Optional[str]
         ):
-            """
-            Recursively visits each AST node and tracks the scope to identify calls.
-
-            Args:
-                node: Current AST node.
-                current_class: Current class scope (if inside a class).
-                current_func: Current function/method scope (if inside a function).
-            """
-            # Update scope if inside class or function
+            global called_file
             new_class = current_class
             new_func = current_func
+
             if isinstance(node, ast.ClassDef):
                 new_class = node.name
             elif isinstance(node, ast.FunctionDef):
                 new_func = node.name
 
-            # --- Track instance assignments for method calls like `obj = ClassName()` ---
+            # Track instance assignments: obj = ClassName()
             if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
                 if isinstance(node.value.func, ast.Name):
                     class_name = node.value.func.id
                     for target in node.targets:
                         if isinstance(target, ast.Name):
-                            instance_map[target.id] = (
-                                class_name  # e.g., obj -> ClassName
-                            )
+                            instance_map[target.id] = class_name
 
-            # --- Identify function/method calls ---
+            # Process calls
             if isinstance(node, ast.Call):
                 callee_name = None
                 parent_class = None
+                parameters, param_types = None, None
 
-                # Direct function call: func()
+                # Direct call: func()
                 if isinstance(node.func, ast.Name):
                     callee_name = node.func.id
-                    parent_class, _ = find_class_and_method(callee_name)
+                    parent_class, called_file, parameters, param_types = (
+                        find_class_and_method(callee_name)
+                    )
 
-                # Method or attribute call: obj.method()
+                # Method call: obj.method()
                 elif isinstance(node.func, ast.Attribute):
                     callee_name = node.func.attr
                     if isinstance(node.func.value, ast.Name):
                         obj_name = node.func.value.id
-                        parent_class = instance_map.get(
-                            obj_name
-                        )  # Check if obj is instance
+                        parent_class = instance_map.get(obj_name)
                         if parent_class is None:
-                            parent_class, _ = find_class_and_method(callee_name)
+                            parent_class, called_file, parameters, param_types = (
+                                find_class_and_method(callee_name)
+                            )
+                    else:
+                        _, called_file, parameters, param_types = find_class_and_method(
+                            callee_name
+                        )
 
-                # Save call info if a callee is identified
+                # Extract argument values as strings
+                arguments = [
+                    ast.unparse(arg) if hasattr(ast, "unparse") else None
+                    for arg in node.args
+                ]
+
                 if callee_name:
-                    coordinates = CallCoordinates(
-                        line=getattr(node, "lineno", -1),
-                        char=getattr(node, "col_offset", -1),
-                    )
                     calls_list.append(
                         Call(
-                            called_file=find_class_and_method(callee_name)[1],
-                            caller_class=new_class,  # Class that made the call
-                            caller_func=new_func,  # Function that made the call
-                            parent_class=parent_class,  # Parent class of callee
-                            called_func=callee_name,  # Name of function being called
-                            coordinates=coordinates,  # Line/column of call
+                            called_file=called_file,
+                            caller_class=new_class,
+                            caller_func=new_func,
+                            parent_class=parent_class,
+                            called_func=callee_name,
+                            coordinates=CallCoordinates(
+                                line=getattr(node, "lineno", -1),
+                                char=getattr(node, "col_offset", -1),
+                            ),
+                            parameters=parameters,
+                            param_types=param_types,
+                            arguments=arguments,
                         )
                     )
 
-            # Recurse into all child AST nodes
+            # Recurse
             for child in ast.iter_child_nodes(node):
                 visit(child, new_class, new_func)
 
-        # Start AST traversal from the module root
         visit(file_ast, current_class=None, current_func=None)
-
-        # Return all calls found for this file
         return Calls(caller_file=file_meta, calls=calls_list)

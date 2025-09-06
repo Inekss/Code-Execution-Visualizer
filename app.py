@@ -23,7 +23,7 @@ class App:
         end = time.perf_counter()
         elapsed = end - start
 
-        Console().print(roadmap)
+        # Console().print(roadmap)
         Console().print(
             f"[green]Seed processing completed successfully in {elapsed:.4f} seconds[/green]"
         )

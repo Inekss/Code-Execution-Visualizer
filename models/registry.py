@@ -9,6 +9,8 @@ from models.file import File
 @dataclass
 class RegistryFunction:
     function_name: str
+    parameters: List[str] = field(default_factory=list)  # parameter names
+    param_types: List[Optional[str]] = field(default_factory=list)  # type hints
     sub_function_of: Optional[str] = None
     parent_class: Optional[RegistryClass] = None
     parent_file: Optional[RegistryFile] = None
@@ -18,6 +20,8 @@ class RegistryFunction:
     def __repr__(self):
         return (
             f"RegistryFunction(function_name='{self.function_name}', "
+            f"parameters={self.parameters}, "
+            f"param_types={self.param_types}, "
             f"parent_class='{self.parent_class.class_name if self.parent_class else None}', "
             f"parent_file='{self.parent_file.file.file_name if self.parent_file else None}', "
             f"parent_function='{self.parent_function.function_name if self.parent_function else None}', "
