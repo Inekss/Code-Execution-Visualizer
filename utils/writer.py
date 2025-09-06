@@ -1,6 +1,7 @@
 import json
 from dataclasses import is_dataclass
 from pathlib import Path
+from typing import Dict
 
 from models.file import File
 
@@ -23,6 +24,21 @@ class Writer:
             json.dump(data, f, indent=4)
 
         print(f"Dependency roadmap saved to {file_path}")
+
+    @staticmethod
+    def save_file_hashes_json(
+        hashes: Dict[str, dict], file_name: str = "file_hashes.json"
+    ) -> None:
+        """Save file hashes (from FileHasher) to JSON."""
+        project_root = Path(__file__).parent.parent
+        data_dir = project_root / "data"
+        data_dir.mkdir(exist_ok=True)
+        file_path = data_dir / file_name
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(hashes, f, indent=4)
+
+        print(f"File hashes saved to {file_path}")
 
     @staticmethod
     def dataclass_to_dict(obj, seen=None):

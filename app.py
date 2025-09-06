@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 from processors.processor import Processor
@@ -12,10 +13,20 @@ class App:
         self.base_path = Path(base_path)
 
     def run(self):
+        start = time.perf_counter()
+
         processor = Processor(self.base_path)
-        roadmap = processor.run()
-        Console().print(roadmap)
+        roadmap, hash_map = processor.run()
+
         Writer.save_dependency_roadmap_json(roadmap)
+
+        end = time.perf_counter()
+        elapsed = end - start
+
+        Console().print(roadmap)
+        Console().print(
+            f"[green]Seed processing completed successfully in {elapsed:.4f} seconds[/green]"
+        )
 
 
 if __name__ == "__main__":
