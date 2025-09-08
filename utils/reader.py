@@ -1,4 +1,5 @@
 import ast
+import json
 from pathlib import Path
 
 
@@ -14,3 +15,9 @@ class Reader:
     def parse_source(source: str) -> ast.Module:
         """Parse a source string directly into an AST."""
         return ast.parse(source)
+
+    @staticmethod
+    def read_json(file_path: Path) -> dict:
+        """Load a JSON file into a Python dict."""
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
