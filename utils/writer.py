@@ -1,5 +1,6 @@
 import json
 from dataclasses import is_dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
@@ -7,16 +8,22 @@ from models.file import File
 
 
 class Writer:
-    """Responsible for saving dependency roadmap to JSON."""
+
+    @staticmethod
+    def _get_versioned_dir() -> Path:
+        project_root = Path(__file__).parent.parent
+        data_dir = project_root / "data"
+
+        version_dir = data_dir / datetime.now().strftime("%Y%m%d_%H%M%S")
+        version_dir.mkdir(parents=True, exist_ok=True)
+        return version_dir
 
     @staticmethod
     def save_dependency_roadmap_json(
         roadmap, file_name: str = "dependency_roadmap.json"
     ):
-        project_root = Path(__file__).parent.parent
-        data_dir = project_root / "data"
-        data_dir.mkdir(exist_ok=True)
-        file_path = data_dir / file_name
+        version_dir = Writer._get_versioned_dir()
+        file_path = version_dir / file_name
 
         data = Writer.dataclass_to_dict(roadmap)
 
@@ -29,10 +36,8 @@ class Writer:
     def save_file_hashes_json(
         hashes: Dict[str, dict], file_name: str = "file_hashes.json"
     ) -> None:
-        project_root = Path(__file__).parent.parent
-        data_dir = project_root / "data"
-        data_dir.mkdir(exist_ok=True)
-        file_path = data_dir / file_name
+        version_dir = Writer._get_versioned_dir()
+        file_path = version_dir / file_name
 
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(hashes, f, indent=4)
