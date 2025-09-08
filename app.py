@@ -1,9 +1,8 @@
-import json
 import time
 from pathlib import Path
 
 from processors.processor import Processor
-from processors.version_diff_processor import VersionDiffProcessor
+from processors.version_diff_processor import VersionProcessor
 from utils.console import Console
 from utils.writer import Writer
 
@@ -26,16 +25,13 @@ class App:
         end = time.perf_counter()
         elapsed = end - start
 
-        # Console().print(roadmap)
         Console().print(
             f"[green]Seed processing completed successfully in {elapsed:.4f} seconds[/green]"
         )
 
-        project_root = Path(__file__).parent  # not .parent.parent
-        data_dir = project_root / "data"
-
-        diff_proc = VersionDiffProcessor(data_dir)
-        report = diff_proc.compare_latest()
+        data_dir = Path(__file__).parent / "data"
+        version_processor = VersionProcessor(data_dir)
+        report = version_processor.compare_latest_versions()
         Console().print(report)
 
 
