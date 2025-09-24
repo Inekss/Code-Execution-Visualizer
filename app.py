@@ -46,9 +46,7 @@ class App:
         Console.print(chains)
 
         visualizer = CallChainVisualizer(graph)
-        visualizer.save_file_charts(
-            prefix="execution_chain", folder="chains_output", show_external=False
-        )
+        visualizer.save_file_charts(prefix="", folder="chains_output")
 
 
 if __name__ == "__main__":
