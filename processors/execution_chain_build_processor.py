@@ -19,10 +19,8 @@ class ExecutionChainBuildProcessor:
             return self.graph
 
         for dep in self.roadmap.map:
-            # use registry contents (classes/functions) — pass file key inside
             self._add_registry_file(dep.registry)
 
-            # Add call edges (format caller/callee using file keys)
             if getattr(dep, "calls", None) and getattr(dep.calls, "calls", None):
                 for call in dep.calls.calls:
                     caller_name = self._format_caller(dep.calls, call)
@@ -31,13 +29,10 @@ class ExecutionChainBuildProcessor:
                     caller = self._add_node_with_label(caller_name)
                     callee = self._add_node_with_label(callee_name)
 
-                    # store edge file using the best available key for the registry file
                     file_key = self._get_file_key_from_registry(dep.registry)
                     self.graph.add_edge(caller, callee, file=file_key)
 
         return self.graph
-
-    # -------------------- HELPERS: FILE KEYS --------------------
 
     def _get_file_key_from_registry(self, registry) -> str:
         """Return best available file identifier for a registry object."""
@@ -70,7 +65,6 @@ class ExecutionChainBuildProcessor:
             if val:
                 return str(val)
 
-        # last resort
         try:
             return str(fileobj)
         except Exception:
@@ -132,12 +126,10 @@ class ExecutionChainBuildProcessor:
         # make a safe id (replace anything non-alnum/underscore/dot by underscore)
         safe_id = re.sub(r"[^0-9A-Za-z_.\-]", "_", label)
 
-        # ensure uniqueness: if safe_id already exists but label differs, add numeric suffix
         if safe_id in self.graph.nodes:
             existing_label = self.graph.nodes[safe_id].get("label")
             if existing_label == label:
                 return safe_id
-            # find unique id
             i = 1
             new_id = f"{safe_id}_{i}"
             while new_id in self.graph.nodes:
@@ -145,7 +137,6 @@ class ExecutionChainBuildProcessor:
                 new_id = f"{safe_id}_{i}"
             safe_id = new_id
 
-        # store human-readable label for visualizer
         self.graph.add_node(safe_id, label=label)
         return safe_id
 

@@ -57,11 +57,11 @@ class CallChainVisualizer:
 
     # -------------------- NETWORK --------------------
     def _create_network(self, hierarchical=False):
-        net = Network(height="800px", width="100%", directed=True, notebook=False)
+        net = Network(height="100%", width="100%", directed=True, notebook=True)
         base_options = {
             "interaction": {"dragNodes": True},
             "physics": {
-                "enabled": True,
+                "enabled": False,
                 "stabilization": {"enabled": True},
                 "solver": "forceAtlas2Based",
             },
@@ -261,18 +261,48 @@ class CallChainVisualizer:
                 )
 
     # -------------------- LEGEND --------------------
-    def _add_legend(self, net):
-        legend_html = """
-            🟩 Light Green = File\n
-            🟦 Light Blue = Top-level function / method\n
-            🟥 Red = Class\n
-            🟪 Purple = Parameter\n
-            💗 Pink = External call\n
-            ⚪ Gray = Other / unknown\n
-            ▫️ Gray = Structural / tree edges\n
-            🌈 Bright colors = Workflow
+    def _add_legend(self, net, filename: Path):
         """
-        net.html = net.generate_html() + legend_html
+        Generate HTML with a fixed legend injected,
+        then save to the given filename.
+        """
+        legend_html = """
+        <div id="callchain-legend" style="
+             position: fixed;
+             right: 12px;
+             top: 12px;
+             z-index: 99999;
+             background: rgba(255,255,255,0.95);
+             border: 1px solid #cfcfcf;
+             padding: 10px 12px;
+             border-radius: 8px;
+             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+             font-family: Arial, Helvetica, sans-serif;
+             font-size: 13px;
+             color: #222;
+             max-width: 240px;">
+          <div style="font-weight:600; margin-bottom:6px;">Legend</div>
+          <div style="line-height:1.5;">
+            <div>🟩 File</div>
+            <div>🟦 Top-level function / method</div>
+            <div>🟥 Class</div>
+            <div>🟪 Parameter</div>
+            <div>💗 External call</div>
+            <div>⚪ Other / unknown</div>
+            <div>▫️ Structural / tree edges (gray)</div>
+            <div>🌈 Workflow (bright colors)</div>
+          </div>
+        </div>
+        """
+
+        html = net.generate_html()
+        if "</body>" in html:
+            html = html.replace("</body>", legend_html + "\n</body>")
+        else:
+            html = html + legend_html
+
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(html)
 
     # -------------------- MAIN --------------------
     def save_file_charts(
@@ -293,8 +323,6 @@ class CallChainVisualizer:
                 continue
             safe_file_root = self.sanitize_filename(root_file)
             net = self._create_network(hierarchical=True)
-            # REMOVE this line → original nodes are unnecessary
-            # self._add_nodes(net, subgraph)
 
             # Add gray tree duplicates
             self._add_duplicate_tree(net, subgraph, is_gray=True)
@@ -302,32 +330,28 @@ class CallChainVisualizer:
             # Add workflow duplicates / edges
             self._highlight_workflows(net, subgraph, nodes, show_sequence=True)
 
-            self._add_legend(net)
             filename = timestamp_folder / f"{prefix}_{safe_file_root}.html"
-            net.write_html(str(filename))
-            print(f"[OK] Saved file chart for {root_file} → {filename}")
+            self._add_legend(net, filename)
 
-        # -------------------- global chart --------------------
-        global_subgraph = self.graph.copy()
-        if not show_external:
-            global_subgraph = global_subgraph.subgraph(
-                [
-                    n
-                    for n in global_subgraph.nodes
-                    if not (
-                        self.graph.nodes[n].get("label", n).startswith("_external_")
-                        or self.graph.nodes[n].get("label", n) == "<external>"
-                    )
-                ]
-            ).copy()
+            # -------------------- global chart --------------------
+            global_subgraph = self.graph.copy()
+            if not show_external:
+                global_subgraph = global_subgraph.subgraph(
+                    [
+                        n
+                        for n in global_subgraph.nodes
+                        if not (
+                            self.graph.nodes[n].get("label", n).startswith("_external_")
+                            or self.graph.nodes[n].get("label", n) == "<external>"
+                        )
+                    ]
+                ).copy()
 
-        net = self._create_network(hierarchical=True)
-        self._add_nodes(net, global_subgraph)
-        self._add_duplicate_tree(net, global_subgraph, is_gray=True)
-        self._highlight_workflows(
-            net, global_subgraph, list(global_subgraph.nodes), show_sequence=True
-        )
-        self._add_legend(net)
-        global_filename = timestamp_folder / f"{prefix}__GLOBAL.html"
-        net.write_html(str(global_filename))
-        print(f"[OK] Saved global chart → {global_filename}")
+            net = self._create_network(hierarchical=True)
+            self._add_duplicate_tree(net, global_subgraph, is_gray=True)
+            self._highlight_workflows(
+                net, global_subgraph, list(global_subgraph.nodes), show_sequence=True
+            )
+
+            global_filename = timestamp_folder / f"{prefix}__GLOBAL.html"
+            self._add_legend(net, global_filename)
